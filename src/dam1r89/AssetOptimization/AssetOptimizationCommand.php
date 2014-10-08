@@ -53,6 +53,11 @@ class AssetOptimizationCommand extends Command
 
         $this->info('Processing JavaScript...');
         $jsPacker = new JavaScriptPacker($fs, $layout, $this->argument('output'));
+
+        $jsPacker->setOptions(array(
+            'minify' => $this->option('minify')
+        ));
+
         $layout = $jsPacker->process();
 
         $this->info('Processing styles...');
@@ -97,6 +102,13 @@ class AssetOptimizationCommand extends Command
         return array(
             array('layout', InputArgument::REQUIRED, 'Layout name (like in the View::make function) eg. layout.site'),
             array('output', InputArgument::REQUIRED, 'Output path'),
+        );
+    }
+
+    protected function getOptions()
+    {
+        return array(
+            array('minify', 'm', InputOption::VALUE_NONE, 'Should JavaScript be minified.'),
         );
     }
 
