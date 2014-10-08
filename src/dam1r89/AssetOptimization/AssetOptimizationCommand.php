@@ -4,6 +4,7 @@ namespace dam1r89\AssetOptimization;
 
 use Illuminate\Console\Command;
 use Illuminate\Filesystem\Filesystem as FileSystem;
+use Illuminate\View\ViewFinderInterface as ViewFinderInterface;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputOption;
 
@@ -17,7 +18,7 @@ class AssetOptimizationCommand extends Command
     protected $fs;
     protected $finder;
 
-    public function __construct(\Illuminate\View\ViewFinderInterface $finder)
+    public function __construct(ViewFinderInterface $finder)
     {
         $this->fs = new Filesystem();
         $this->finder = $finder;
@@ -34,9 +35,10 @@ class AssetOptimizationCommand extends Command
 
         if ($this->isUsingOrigFile()) {
 
-            $this->info('Using source file...');
             $backupLayoutPath = $this->finder->find($this->argument('layout'));
             $layoutPath = $this->addOrigPrefix($backupLayoutPath);
+            $this->info('Using source file '. PathHelper::normalize($backupLayoutPath));
+
 
         } else {
 
@@ -47,20 +49,20 @@ class AssetOptimizationCommand extends Command
 
         }
 
-        $out = $fs->get($backupLayoutPath);
+        $layout = $fs->get($backupLayoutPath);
 
-        $jsPacker = new JavaScriptPacker($fs, $out, $this->argument('output'));
-        $out = $jsPacker->process();
+        $this->info('Processing JavaScript...');
+        $jsPacker = new JavaScriptPacker($fs, $layout, $this->argument('output'));
+        $layout = $jsPacker->process();
 
-        $stylePacker = new StylePacker($fs, $out, $this->argument('output'));
-
-        $out = $stylePacker->process();
+        $this->info('Processing styles...');
+        $stylePacker = new StylePacker($fs, $layout, $this->argument('output'));
+        $layout = $stylePacker->process();
 
         $this->info('Replacing old layout');
-        $fs->put($layoutPath, $out);
+        $fs->put($layoutPath, $layout);
 
         $this->info('Done!');
-
 
     }
 

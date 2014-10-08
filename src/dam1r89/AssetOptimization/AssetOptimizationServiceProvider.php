@@ -1,10 +1,9 @@
 <?php namespace dam1r89\AssetOptimization;
 
 use Illuminate\Support\Facades\Facade;
-use Illuminate\View\View as View;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\HTML as HTML;
-use Symfony\Component\HttpKernel\Client;
+use Illuminate\View\FileViewFinder as FileViewFinder;
 
 class AssetOptimizationServiceProvider extends ServiceProvider {
 
@@ -22,7 +21,7 @@ class AssetOptimizationServiceProvider extends ServiceProvider {
         $this->app['command.asopt'] = $this->app->share(function($app)
         {
             $paths = $app['config']['view.paths'];
-            return new AssetOptimizationCommand(new \Illuminate\View\FileViewFinder($app['files'], $paths));
+            return new AssetOptimizationCommand(new FileViewFinder($app['files'], $paths));
         });
 
         $this->commands('command.asopt');
