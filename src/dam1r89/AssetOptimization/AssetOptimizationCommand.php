@@ -49,10 +49,12 @@ class AssetOptimizationCommand extends Command
 
         $out = $fs->get($backupLayoutPath);
 
-//        $out = $this->processScripts($out);
-        $stylePacker = new StylePacker($fs);
+        $jsPacker = new JavaScriptPacker($fs, $out, $this->argument('output'));
+        $out = $jsPacker->process();
 
-        $out = $stylePacker->processStyles($out, $this->argument('output'));
+        $stylePacker = new StylePacker($fs, $out, $this->argument('output'));
+
+        $out = $stylePacker->process();
 
         $this->info('Replacing old layout');
         $fs->put($layoutPath, $out);
@@ -94,45 +96,6 @@ class AssetOptimizationCommand extends Command
             array('layout', InputArgument::REQUIRED, 'Layout name (like in the View::make function) eg. layout.site'),
             array('output', InputArgument::REQUIRED, 'Output path'),
         );
-    }
-
-    protected function getOptions()
-    {
-        return array(//            array('orig', 'o', InputOption::VALUE_OPTIONAL, 'Are you using orig file?', false),
-        );
-    }
-
-    /**
-     * @param $layoutContent string
-     * @return string
-     */
-    private function processScripts($layoutContent)
-    {
-
-        $matches = array();
-
-        preg_match_all('/HTML::script\(\'(.*)\'\)/', $layoutContent, $matches);
-
-        $all = '';
-        foreach ($matches[1] as $asset) {
-            $this->info($asset);
-            $all .= $this->fs->get(public_path($asset)) . ';';
-        }
-
-        $this->info('Minifying JavaScript...');
-
-        $all = \JShrink\Minifier::minify($all, array('flaggedComments' => false));
-
-        $concat = $this->argument('output') . '.js';
-
-        $this->fs->put(public_path($concat), $all);
-
-
-        $out = preg_replace('/{{\s*HTML::script.*?}}/', '', $layoutContent);
-        $out = preg_replace('/\n\s*\n/', "\n", $out);
-
-        $out = str_replace('</body>', "\t{{ HTML::script('$concat') }}\n</body>", $out);
-        return $out;
     }
 
 }

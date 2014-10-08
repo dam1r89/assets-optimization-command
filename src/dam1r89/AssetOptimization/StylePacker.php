@@ -9,73 +9,90 @@
 namespace dam1r89\AssetOptimization;
 
 
-class StylePacker {
+class StylePacker
+{
+
+    const REGEXP_CSS_COMMENTS = "/\\/\\*(.|\n|\r)*?\\*\\//";
+    const REGEXP_MULTILINE_SPACE = "/(\\s|\n|\r)/";
+    const REGEXP_BLADE_STYLE_TAG = '/{{\s*HTML::style.*?}}/';
+    const REGEXP_BLADE_STYLE_SOURCE = '/HTML::style\(\'(.*)\'\)/';
+    const REGEXP_CSS_URL = '/url\((.*?)\)/i';
 
     private $fs;
+    private $cssContent = '';
+    private $layoutContent;
+    private $target;
 
-    function __construct($fs)
+    function __construct($fs, $layoutContent, $output)
     {
+        $this->layoutContent = $layoutContent;
         $this->fs = $fs;
+        $this->target = $output . '.css';
     }
 
-    public function processStyles($layoutContent, $output)
+    public function process()
     {
 
-        $target = $output . '.css';
+        $this->extractStyleLinks();
+        $this->pullImportsUp();
+        $this->cleanComments();
+        $this->saveStyleToTarget();
 
-        // get all used scripts from layout
-        $links = $this->getStyleLinks($layoutContent);
+        $this->cleanLayout();
 
-        $cssContent = '';
+        return $this->layoutContent;
+    }
+
+    private function extractStyleLinks()
+    {
+        $links = $this->getStyleLinks();
+
         foreach ($links as $link) {
+
             $this->info($link);
+
             $file = public_path($link);
             $source = pathinfo($file, PATHINFO_DIRNAME);
-            $style = $this->fs->get($file) . "\n";
+            $style = $this->fs->get($file);
 
-            $style = preg_replace_callback('/url\((.*?)\)/i', function ($matches) use ($source, $target) {
+            $style = preg_replace_callback(self::REGEXP_CSS_URL, function ($matches) use ($source) {
 
-                return $this->resolveLinks($matches, $source, $target);
+                return $this->resolveLinks($matches, $source);
 
             }, $style);
 
-            $cssContent .= $style;
+            $this->cssContent .= $style;
         }
-
-
-        $cssContent = $this->pullImportsUp($cssContent);
-        $cssContent = $this->cleanComments($cssContent);
-
-        $this->fs->put(public_path($target), $cssContent);
-
-        $layoutContent = preg_replace('/{{\s*HTML::style.*?}}/', '', $layoutContent);
-        $layoutContent = preg_replace('/\n\s*\n/', "\n", $layoutContent);
-
-        $layoutContent = str_replace('</head>', "\t{{ HTML::style('$target') }}\n</head>", $layoutContent);
-        return $layoutContent;
     }
 
-    public function resolveLinks($matches, $source, $target){
+    private function getStyleLinks()
+    {
+        preg_match_all(self::REGEXP_BLADE_STYLE_SOURCE, $this->layoutContent, $matches);
+        return $matches[1];
+    }
+
+    private function info($message)
+    {
+
+    }
+
+    public function resolveLinks($matches, $source)
+    {
 
         $filename = $this->filenameFromUrl($matches[1]);
 
         if ($this->fs->exists("$source/$filename")) {
 
-            $backCount = substr_count($target, '/');
+            $backCount = substr_count($this->target, '/');
             $back = str_repeat('../', $backCount);
 
             $urlBase = substr($source, strlen(public_path()) + 1);
             $filename = PathHelper::normalize("$back$urlBase/{$filename}");
 
-            return "url($filename)";
         }
         return "url($filename)";
     }
 
-    /**
-     * @param $url
-     * @return string
-     */
     function filenameFromUrl($url)
     {
         $filename = trim($url, ' "\'');
@@ -85,35 +102,29 @@ class StylePacker {
         return $filename;
     }
 
-    /**
-     * @param $cssContent
-     * @return string
-     */
-    private function pullImportsUp($cssContent)
+    private function pullImportsUp()
     {
-        preg_match_all('/@import.*/', $cssContent, $matches);
-        $cssContent = implode("\n", $matches[0]) . "\n" . preg_replace('/@import.*/', '', $cssContent);
-
-        return $cssContent;
+        preg_match_all('/@import.*/', $this->cssContent, $matches);
+        $this->cssContent = implode("\n", $matches[0]) . "\n" . preg_replace('/@import.*/', '', $this->cssContent);
     }
 
-    private function cleanComments($cssContent)
+    private function cleanComments()
     {
-        $cssContent = preg_replace("/\\/\\*(.|\n|\r)*?\\*\\//", '', $cssContent);
-        return preg_replace("/(\\s|\n|\r)/", ' ', $cssContent);
+        $this->cssContent = preg_replace(self::REGEXP_CSS_COMMENTS, '', $this->cssContent);
+        $this->cssContent = preg_replace(self::REGEXP_MULTILINE_SPACE, ' ', $this->cssContent);
     }
 
-    private function info($message){
-
+    private function saveStyleToTarget()
+    {
+        $this->fs->put(public_path($this->target), $this->cssContent);
     }
 
-    /**
-     * @param $layoutContent
-     * @return mixed
-     */
-    private function getStyleLinks($layoutContent)
+
+    private function cleanLayout()
     {
-        preg_match_all('/HTML::style\(\'(.*)\'\)/', $layoutContent, $matches);
-        return $matches[1];
+        $lc = preg_replace(self::REGEXP_BLADE_STYLE_TAG, '', $this->layoutContent);
+        $lc = preg_replace('/\n\s*\n/', "\n", $lc);
+        $lc = str_replace('</head>', "\t{{ HTML::style('$this->target') }}\n</head>", $lc);
+        $this->layoutContent = $lc;
     }
 }
