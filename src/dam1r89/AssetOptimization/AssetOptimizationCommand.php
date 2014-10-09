@@ -33,23 +33,37 @@ class AssetOptimizationCommand extends Command
 
         $fs = $this->fs;
 
+
+
+
         if ($this->isUsingOrigFile()) {
 
-            $backupLayoutPath = $this->finder->find($this->argument('layout'));
-            $layoutPath = $this->addOrigPrefix($backupLayoutPath);
-            $this->info('Using source file '. PathHelper::normalize($backupLayoutPath));
+            $sourceLayoutPath = $this->finder->find($this->argument('layout'));
+            $destLayoutPath = $this->removeOrigPrefix($sourceLayoutPath);
+            $this->info('Using source file '. PathHelper::normalize($sourceLayoutPath));
 
 
         } else {
 
-            $layoutPath = $this->finder->find($this->argument('layout'));
-            $backupLayoutPath = $this->removeOrigPrefix($layoutPath);
-            $this->info('Making backup...');
-            $fs->copy($layoutPath, $backupLayoutPath);
-
+            $destLayoutPath = $this->finder->find($this->argument('layout'));
+            $sourceLayoutPath = $this->addOrigPrefix($destLayoutPath);
+            $this->info('Making backup of source path...');
+            if ($fs->exists($sourceLayoutPath)){
+                $this->error("Orig file $sourceLayoutPath. Aborting. Use command with orig- prefix.");
+                return;
+            }
+            $fs->copy($destLayoutPath, $sourceLayoutPath);
         }
 
-        $layout = $fs->get($backupLayoutPath);
+        if ($this->option('reset')){
+            $fs->copy($sourceLayoutPath, $destLayoutPath);
+            $fs->delete($sourceLayoutPath);
+            $this->info('Everything is back to normal.');
+            return;
+        }
+
+
+        $layout = $fs->get($sourceLayoutPath);
 
         $this->info('Processing JavaScript...');
         $jsPacker = new JavaScriptPacker($fs, $layout, $this->argument('output'));
@@ -65,7 +79,7 @@ class AssetOptimizationCommand extends Command
         $layout = $stylePacker->process();
 
         $this->info('Replacing old layout');
-        $fs->put($layoutPath, $layout);
+        $fs->put($destLayoutPath, $layout);
 
         $this->info('Done!');
 
@@ -76,14 +90,14 @@ class AssetOptimizationCommand extends Command
      */
     private function isUsingOrigFile()
     {
-        return strpos($this->argument('layout'), self::ORIG_PREFIX) !== -1;
+        return strpos($this->argument('layout'), self::ORIG_PREFIX) !== false;
     }
 
     /**
      * @param $backupLayoutPath
      * @return string
      */
-    private function addOrigPrefix($backupLayoutPath)
+    private function removeOrigPrefix($backupLayoutPath)
     {
         return pathinfo($backupLayoutPath, PATHINFO_DIRNAME) . '/' . substr(pathinfo($backupLayoutPath, PATHINFO_BASENAME), strlen(self::ORIG_PREFIX));
     }
@@ -92,7 +106,7 @@ class AssetOptimizationCommand extends Command
      * @param $layoutPath
      * @return string
      */
-    private function removeOrigPrefix($layoutPath)
+    private function addOrigPrefix($layoutPath)
     {
         return pathinfo($layoutPath, PATHINFO_DIRNAME) . '/' . self::ORIG_PREFIX . pathinfo($layoutPath, PATHINFO_BASENAME);
     }
@@ -109,6 +123,7 @@ class AssetOptimizationCommand extends Command
     {
         return array(
             array('minify', 'm', InputOption::VALUE_NONE, 'Should JavaScript be minified.'),
+            array('reset', 'r', InputOption::VALUE_NONE, 'If layout should be reverted. Enter name of the original layout.'),
         );
     }
 
