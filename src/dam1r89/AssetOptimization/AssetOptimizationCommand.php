@@ -33,29 +33,26 @@ class AssetOptimizationCommand extends Command
 
         $fs = $this->fs;
 
+        $original = $this->argument('layout');
 
+        $withPrefix = $this->getLayoutWithPrefix($original);
 
-
-        if ($this->isUsingOrigFile()) {
-
-            $sourceLayoutPath = $this->finder->find($this->argument('layout'));
+        try {
+            $sourceLayoutPath = $this->finder->find($withPrefix);
+            $this->comment('Orig file foud, using it as a source.');
             $destLayoutPath = $this->removeOrigPrefix($sourceLayoutPath);
-            $this->info('Using source file '. PathHelper::normalize($sourceLayoutPath));
 
+        } catch (\InvalidArgumentException $e) {
 
-        } else {
+            $this->info('Making backup of the source files...');
+            $sourceLayoutPath = $this->finder->find($original);
+            $fs->copy($sourceLayoutPath, $this->addOrigPrefix($sourceLayoutPath));
+            $destLayoutPath = $sourceLayoutPath;
+            $sourceLayoutPath = $this->addOrigPrefix($sourceLayoutPath);
 
-            $destLayoutPath = $this->finder->find($this->argument('layout'));
-            $sourceLayoutPath = $this->addOrigPrefix($destLayoutPath);
-            $this->info('Making backup of source path...');
-            if ($fs->exists($sourceLayoutPath)){
-                $this->error("Orig file $sourceLayoutPath. Aborting. Use command with orig- prefix.");
-                return;
-            }
-            $fs->copy($destLayoutPath, $sourceLayoutPath);
         }
 
-        if ($this->option('reset')){
+        if ($this->option('reset')) {
             $fs->copy($sourceLayoutPath, $destLayoutPath);
             $fs->delete($sourceLayoutPath);
             $this->info('Everything is back to normal.');
@@ -86,11 +83,17 @@ class AssetOptimizationCommand extends Command
     }
 
     /**
-     * @return bool
+     * @param $original
+     * @return string
      */
-    private function isUsingOrigFile()
+    private function getLayoutWithPrefix($original)
     {
-        return strpos($this->argument('layout'), self::ORIG_PREFIX) !== false;
+        $layoutParts = explode('.', $original);
+        $lastIndex = count($layoutParts) - 1;
+        $layoutParts[$lastIndex] = 'orig-' . $layoutParts[$lastIndex];
+
+        $withPrefix = implode('.', $layoutParts);
+        return $withPrefix;
     }
 
     /**

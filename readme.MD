@@ -15,23 +15,29 @@ becomes
 
 ##Usage
 
-    php artisan asopt layouts.site
+    php artisan asopt <layout-file> <dest/folder/file>
+    php artisan asopt layouts.site build/main
+
+Destination shouldn't have an extension (.js or .css).
 
 Optional JavaScript minify flag `-m`
 
-    php artisan asopt layouts.site -m
+    php artisan asopt layouts.site build/main -m
 
 `layouts.site` view will be replaced with new generated layout so no need to change views to use new layout.
 Old layout is saved in the same folder but with `orig-` prefix, it will be `orig-site.blade.php`.
-After that, do not change `layout.site` file, but only file with `orig-` prefix.
+After that, do not change `layout.site` file, only a file with `orig-` prefix.
+
+Output is saved under the public path and specified folder.
 
 The main problem with this approach is that you have to rerun command after each change to the orig layout file.
 
 ##For production
 
-You can add to `.gitignore` generated files and keep `orig-site.blade.php` file. Then to compile you should call the command like this:
+Add to `.gitignore` generated files (ones without `orig-` prefix, these used to be original files, but now they are replaced with the generated one) and keep `orig-site.blade.php` file.
+To compile it call the command as usual. Command will find that `orig-site.blade.php` exists and will build the layout from that file.
 
-    php artisan asopt layouts.orig-site
+    php artisan asopt layouts.site build/main
 
 ##Installation
 
