@@ -21,11 +21,14 @@ class JavaScriptPacker {
     function __construct($fs, $layoutContent, $output)
     {
         $this->fs = $fs;
-        $this->target = $output . '.js';
         $this->layoutContent = $layoutContent;
         $this->options = $this->defaults = array(
             'minify' => false,
+            'version' => true
         );
+
+        $this->target = $output . '.js';
+
 
     }
 
@@ -73,7 +76,10 @@ class JavaScriptPacker {
 
         $out = preg_replace('/{{\s*HTML::script.*?}}/', '', $this->layoutContent);
         $out = preg_replace('/\n\s*\n/', "\n", $out);
-        $out = str_replace('</body>', "\t{{ HTML::script('$this->target') }}\n</body>", $out);
+
+        $scriptPath = $this->target.($this->options['version'] ? '?time='.time() : '');
+
+        $out = str_replace('</body>', "\t{{ HTML::script('$scriptPath') }}\n</body>", $out);
         $this->layoutContent = $out;
     }
 
@@ -86,7 +92,7 @@ class JavaScriptPacker {
 
         $scriptContent = '';
         foreach ($scripts as $script) {
-            $scriptContent .= $this->fs->get(public_path($script)) . ';';
+            $scriptContent .= $this->fs->get(public_path($script)) . ";\n";
         }
         return $scriptContent;
     }

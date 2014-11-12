@@ -124,7 +124,8 @@ class StylePacker
     {
         $lc = preg_replace(self::REGEXP_BLADE_STYLE_TAG, '', $this->layoutContent);
         $lc = preg_replace('/\n\s*\n/', "\n", $lc);
-        $lc = str_replace('</head>', "\t{{ HTML::style('$this->target') }}\n</head>", $lc);
+        $targetStyle = $this->target.'?time='.time();
+        $lc = str_replace('</head>', "\t{{ HTML::style('$targetStyle') }}\n</head>", $lc);
         $this->layoutContent = $lc;
     }
 }
